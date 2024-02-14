@@ -1,9 +1,12 @@
+from flask import Flask, request, jsonify
 from os import environ
 from dotenv import load_dotenv
 from supabase import create_client
 from langchain_mistralai import MistralAIEmbeddings
 
 load_dotenv()
+
+app = Flask(__name__)
 
 url = environ.get("SUPABASE_URL")
 key = environ.get("SUPABASE_SERVICE_KEY")
@@ -25,10 +28,13 @@ def find_similar_documents(query_embedding):
     
     return [record['id'] for record in response.data]
 
-# Input query
-query = input("Enter your query: ")
-query_embedding = convert_to_embedding(query)
+@app.route('/search', methods=['POST'])
+def search():
+    data = request.json
+    query = data['query']
+    query_embedding = convert_to_embedding(query)
+    similar_documents = find_similar_documents(query_embedding)
+    return jsonify(similar_documents)
 
-# Find similar documents
-similar_documents = find_similar_documents(query_embedding)
-print(similar_documents)
+if __name__ == '__main__':
+    app.run(debug=True)
