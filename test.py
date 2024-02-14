@@ -36,5 +36,6 @@ def search():
     similar_documents = find_similar_documents(query_embedding)
     return jsonify(similar_documents)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
