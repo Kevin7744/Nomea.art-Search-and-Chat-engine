@@ -12,17 +12,26 @@ mistral_api_key = environ.get("MISTRAL_API_KEY")
 supabase = create_client(url, key)
 
 # Fetch data from "documents" table
-response = supabase.table('documents').select('id', 'content').execute()
+response = supabase.table('documents').select('id', 'content', 'content_two', 'content_three', 'content_four', 'content_five').execute()
 
 # Extract descriptions and handle missing values
-descriptions = pd.Series([record["content"] for record in response.data])
+descriptions = pd.Series([
+    " ".join([
+        record["content"],
+        record["content_two"],
+        record["content_three"],
+        record["content_four"],
+        record["content_five"]
+    ])
+    for record in response.data
+])
 descriptions = descriptions.fillna("")
 
 # Create embeddings from text 
 embedding = MistralAIEmbeddings(mistral_api_key=mistral_api_key)
 embedding.model = "mistral-embed"
 
-# Create embeddings in batches 
+# Create embeddings in batches (recommended for efficiency & API limits)
 batch_size = 10
 embeddings = []
 for i in range(0, len(descriptions), batch_size):
@@ -47,3 +56,4 @@ for data in embedding_data:
     #     print("Error updating embeddings for ID", data['id'], ":", update_query.error)
     # else:
     #     print("Embeddings updated successfully for ID", data['id'])
+
