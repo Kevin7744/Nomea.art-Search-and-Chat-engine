@@ -1,44 +1,35 @@
-import requests
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain_community.llms.llamacpp import LlamaCpp
 
-# Update with your API key
-MISTRAL_API_KEY = ""
 
-# Chat endpoint URL
-API_ENDPOINT = "https://api.mistral.ai/v1/chat/completions"
+template = """Question: {question}
 
-while True:
-    user_input = input("> ")
+Answer: Let's work this out in a step by step way to be sure we have the right answer."""
 
-    # Prepare payload
-    payload = {
-        "model": "mistral-tiny",
-        "messages": [{"role": "user", "content": user_input}],
-    }
+prompt = PromptTemplate.from_template(template)
 
-    # Set headers
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-    }
 
-    # Send request and handle response
-    response = requests.post(API_ENDPOINT, json=payload, headers=headers)
+# Callbacks support token-wise streaming
+callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
-    if response.status_code == 200:
-        response_data = response.json()
-        if "messages" in response_data and len(response_data["messages"]) > 0:
-            assistant_response = response_data["messages"][0]["content"]
-            print(f"Assistant: {assistant_response}")
-        else:
-            print("Empty response from the API")
-            assistant_response = ""
-    else:
-        print(f"Error calling API: {response.status_code}")
-        assistant_response = ""
+n_gpu_layers = -1  # The number of layers to put on the GPU. The rest will be on the CPU. If you don't know how many layers there are, you can use -1 to move all to GPU.
+n_batch = 512  # Should be between 1 and n_ctx, consider the amount of VRAM in your GPU.
 
-    # Check for ending signals (optional)
-    if assistant_response.lower().endswith("goodbye") or assistant_response.lower().endswith("bye"):
-        break
 
-print("Chatbot conversation ended.")
+# Make sure the model path is correct for your system!
+llm = LlamaCpp(
+    model_path="",
+    n_gpu_layers=n_gpu_layers,
+    n_batch=n_batch,
+    callback_manager=callback_manager,
+    verbose=True,  # Verbose is required to pass to the callback manager
+)
+
+llm_chain = LLMChain(prompt=prompt, llm=llm)
+
+
+question = input("")
+llm_chain.run(question)
