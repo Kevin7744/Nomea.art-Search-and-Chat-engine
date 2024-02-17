@@ -3,7 +3,7 @@ from langchain.agents import initialize_agent, AgentType
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain.schema import SystemMessage
 from langchain.memory import ConversationSummaryBufferMemory
-from Tools.tools import SimilaritySearchTool
+from Tools.tools import similarity_search
 from dotenv import load_dotenv
 import os
 
@@ -13,19 +13,28 @@ load_dotenv()
 
 llm = ChatMistralAI(api_key=os.getenv("MISTRAL_API_KEY"), temperature=0)
 
-system_message = SystemMessage(content="""
-    " You are an AI art advisory assistant"
-    " You asnwer user questions and give them the best responses as possible"
-    " You have this tools that you can use to search for art on the Vector database and give back the art they might be looking for"
-    " This tool `SimilaritySearchTool()`, Perfoms a similarity seach, use it when necessary"
-    " For example :"
-    "          >user_input: I'm looking for art of mountains"
-    "           Use the similarity tool and search for art in the using the following query `mountain, hill, nature`"
-    " Keep your responses as short as possible"
+system_message = SystemMessage(content="""You are Lila, an art advisory assistant.
+You answer user questions and give them the best responses as possible.
+You have this tools that you can use to search for art on the Vector database and give back the art they might be looking for.
+This tool `SimilaritySearchTool()`, Perfoms a similarity search based on user's query and retrieves a list of images, use it when necessary.
+
+                               
+For example :
+                               
+Use the following format:
+
+Question:  user's Question here
+Query: Query to run with SimilaritySearchTool from user's question
+Result: Result of the SimilaritySearchTool
+Answer: Don't display the final answer to user just say "Is that what you are looking for?"
+                               
+Keep your responses as short as possible.
+                               
+Don't make up lies, if you can't use SimilaritySearchTool, just say `there is a problem getting the relevant images`.
 """)
 
 tools = [
-    SimilaritySearchTool(),
+    similarity_search,
 ]
 
 agent_kwargs = {
@@ -41,11 +50,12 @@ memory = ConversationSummaryBufferMemory(memory_key="memory",
 agent = initialize_agent(
     tools,
     llm,
-    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    # agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
     verbose=True,
     agent_kwargs=agent_kwargs,
     memory=memory,
     user_input_key="input",
+    handle_parsing_errors=True,
 )
 
 # API endpoint to receive messages
