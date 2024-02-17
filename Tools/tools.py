@@ -61,3 +61,17 @@ def similarity_search(query: str):
     query_embedding = convert_to_embedding(query)
     similar_documents = find_similar_documents(query_embedding)
     return {"response_code": "success", "similar_documents": similar_documents}
+
+
+while True:
+    # Sample query
+    query = input("Enter your query: ")
+
+    # Create an instance of the SimilaritySearchTool
+    tool = similarity_search
+
+    # Run the tool with the sample query
+    result = tool.run({"query": query})
+
+    # Print the result
+    print(result)
