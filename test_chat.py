@@ -45,7 +45,7 @@ agent = initialize_agent(
     verbose=True,
     agent_kwargs=agent_kwargs,
     memory=memory,
-    user_input_key="input"
+    user_input_key="input",
 )
 
 # API endpoint to receive messages

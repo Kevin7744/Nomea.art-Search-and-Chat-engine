@@ -38,7 +38,9 @@ class SimilaritySearchTool(BaseTool):
     args_schema = SimilaritySearchInput
     result_schema = SimilaritySearchOutput
 
-    def _run(self, inputs):
-        query_embedding = convert_to_embedding(inputs.query)
+    def _run(self, query):
+        query_embedding = convert_to_embedding(query)
         similar_documents = find_similar_documents(query_embedding)
         return {"response_code": "success", "similar_documents": similar_documents}
+
+
