@@ -63,15 +63,15 @@ def similarity_search(query: str):
     return {"response_code": "success", "similar_documents": similar_documents}
 
 
-while True:
-    # Sample query
-    query = input("Enter your query: ")
+# while True:
+#     # Sample query
+#     query = input("Enter your query: ")
 
-    # Create an instance of the SimilaritySearchTool
-    tool = similarity_search
+#     # Create an instance of the SimilaritySearchTool
+#     tool = similarity_search
 
-    # Run the tool with the sample query
-    result = tool.run({"query": query})
+#     # Run the tool with the sample query
+#     result = tool.run({"query": query})
 
-    # Print the result
-    print(result)
+#     # Print the result
+#     print(result)
