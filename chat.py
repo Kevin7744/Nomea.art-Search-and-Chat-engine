@@ -1,35 +1,70 @@
-from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain_community.llms.llamacpp import LlamaCpp
+from flask import Flask, request, jsonify
+from langchain.agents import initialize_agent, AgentType
+from langchain_mistralai.chat_models import ChatMistralAI
+from langchain.schema import SystemMessage
+from langchain.memory import ConversationSummaryBufferMemory
+from Tools.tools import SimilaritySearchTool
+from dotenv import load_dotenv
+import os
 
+app = Flask(__name__)
 
-template = """Question: {question}
+load_dotenv()
 
-Answer: Let's work this out in a step by step way to be sure we have the right answer."""
+llm = ChatMistralAI(api_key=os.getenv("MISTRAL_API_KEY"), temperature=0)
 
-prompt = PromptTemplate.from_template(template)
+system_message = SystemMessage(content="""
+    " You are an AI art advisory assistant"
+    " You asnwer user questions and give them the best responses as possible"
+    " You have this tools that you can use to search for art on the Vector database and give back the art they might be looking for"
+    " This tool `SimilaritySearchTool()`, Perfoms a similarity seach, use it when necessary"
+    " For example :"
+    "          >user_input: I'm looking for art of mountains"
+    "           Use the similarity tool and search for art in the using the following query `mountain, hill, nature`"
+    " Keep your responses as short as possible"
+""")
 
+tools = [
+    SimilaritySearchTool(),
+]
 
-# Callbacks support token-wise streaming
-callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
+agent_kwargs = {
+    "extra_prompt_message": [],
+    "system_message": system_message,
+}
 
-n_gpu_layers = -1  # The number of layers to put on the GPU. The rest will be on the CPU. If you don't know how many layers there are, you can use -1 to move all to GPU.
-n_batch = 512  # Should be between 1 and n_ctx, consider the amount of VRAM in your GPU.
+memory = ConversationSummaryBufferMemory(memory_key="memory",
+                                         return_messages=True,
+                                         llm=llm,
+                                         max_token_limit=250)
 
-
-# Make sure the model path is correct for your system!
-llm = LlamaCpp(
-    model_path="",
-    n_gpu_layers=n_gpu_layers,
-    n_batch=n_batch,
-    callback_manager=callback_manager,
-    verbose=True,  # Verbose is required to pass to the callback manager
+agent = initialize_agent(
+    tools,
+    llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True,
+    agent_kwargs=agent_kwargs,
+    memory=memory,
+    user_input_key="input",
 )
 
-llm_chain = LLMChain(prompt=prompt, llm=llm)
+# API endpoint to receive messages
+@app.route("/chat", methods=["POST"])
+def chat():
+    try:
+        user_input = request.form["Body"]
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400  
 
+    if user_input.lower() == "end":
+        return jsonify({"message": "Have a good day!"})
 
-question = input("")
-llm_chain.run(question)
+    agent_response = agent({"input": user_input})
+    print("Agent Response:", agent_response)  
+
+    assistant_message_content = agent_response.get("output", "No response from the assistant.")
+
+    return jsonify({"response": assistant_message_content})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=True)
