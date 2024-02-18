@@ -13,6 +13,15 @@ key = environ.get("SUPABASE_SERVICE_KEY")
 mistral_api_key = environ.get("MISTRAL_API_KEY")
 supabase = create_client(url, key)
 
+# Function to convert Image to vector embedding
+
+
+
+# Function to find similar images using Supabase SQL function.
+
+
+
+
 # Function to convert query to vector embedding
 def convert_to_embedding(query):
     embedding = MistralAIEmbeddings(mistral_api_key=mistral_api_key)
