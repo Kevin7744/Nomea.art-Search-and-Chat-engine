@@ -3,7 +3,7 @@ from langchain.agents import initialize_agent, AgentType
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain.schema import SystemMessage
 from langchain.memory import ConversationSummaryBufferMemory
-from Tools.tools import similarity_search
+from functions import SimilaritySearchTool, generate_hermes
 from dotenv import load_dotenv
 import os
 
@@ -37,9 +37,9 @@ Don't make up lies, if you can't use SimilaritySearchTool, just say `there is a 
 """
 )
 
-tools = [
-    similarity_search,
-]
+tools = {
+    "SimilaritySearchTool": SimilaritySearchTool()
+}
 
 agent_kwargs = {
     "extra_prompt_message": [],

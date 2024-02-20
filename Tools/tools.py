@@ -1,7 +1,5 @@
-# from pydantic import BaseModel, Field
-# from langchain.tools import BaseTool
+from pydantic import BaseModel, Field
 
-from langchain.agents import tool
 from supabase import create_client
 from langchain_mistralai import MistralAIEmbeddings
 from os import environ
@@ -24,54 +22,24 @@ def find_similar_documents(query_embedding):
         'query_embedding': query_embedding,
         'filter': {}
     }).execute()
-    
+
     return [record['id'] for record in response.data]
 
-# class SimilaritySearchInput(BaseModel):
-#     query: str = Field(description="The search query to use for similarity search.")
+class SimilaritySearchInput(BaseModel):
+    query: str = Field(description="The search query to use for similarity search.")
 
-# class SimilaritySearchOutput(BaseModel):
-#     response_code: str = Field(description="Response code for the search.")
-#     similar_documents: list = Field(description="List of IDs of similar images.")
+class SimilaritySearchOutput(BaseModel):
+    response_code: str = Field(description="Response code for the search.")
+    similar_documents: list = Field(description="List of IDs of similar images.")
 
-# class SimilaritySearchTool(BaseTool):
-#     name = "similarity_search"
-#     description = "Tool for performing a similarity search based on query on a Supabase database."
-#     args_schema = SimilaritySearchInput
-#     result_schema = SimilaritySearchOutput
+class SimilaritySearchTool:
+    """Tool for performing a similarity search based on query on a Supabase database."""
 
-#     def _run(self, query):
-#         query_embedding = convert_to_embedding(query)
-#         similar_documents = find_similar_documents(query_embedding)
-#         return {"response_code": "success", "similar_documents": similar_documents}
+    def __init__(self):
+        pass
 
-
-@tool
-def similarity_search(query: str):
-    """
-    Search for similar images based on a query.
-
-    Args:
-    - query: The search query to use for similarity search.
-
-    Returns:
-    - response_code: Response code for the search.
-    - similar_documents: List of IDs of similar images.
-    """
-    query_embedding = convert_to_embedding(query)
-    similar_documents = find_similar_documents(query_embedding)
-    return {"response_code": "success", "similar_documents": similar_documents}
-
-
-# while True:
-#     # Sample query
-#     query = input("Enter your query: ")
-
-#     # Create an instance of the SimilaritySearchTool
-#     tool = similarity_search
-
-#     # Run the tool with the sample query
-#     result = tool.run({"query": query})
-
-#     # Print the result
-#     print(result)
+    def run(self, query):
+        """Perform similarity search based on the given query."""
+        query_embedding = convert_to_embedding(query)
+        similar_documents = find_similar_documents(query_embedding)
+        return {"response_code": "success", "similar_documents": similar_documents}
