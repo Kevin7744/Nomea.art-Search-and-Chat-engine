@@ -19,6 +19,9 @@ from supabase import create_client
 
 from flask import Flask, request, jsonify
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
 app = Flask(__name__)
 
 # Load API key from .env file
@@ -57,7 +60,6 @@ def find_similar_documents(query_embedding):
 
     return [record['id'] for record in response.data]
 
-    
 class SimilarityTool(BaseModel):
     """performs a similarity search based on query on a Supabase database."""
     query: str = Field(description="The search query to use for similarity search.")
@@ -74,10 +76,56 @@ class SimilarityTool(BaseModel):
         similar_documents = find_similar_documents(query_embedding)
         self.similar_documents = similar_documents
 
+executor = ThreadPoolExecutor()
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_input = data['user_input']
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    response = loop.run_until_complete(generate_hermes_async(user_input, model, tokenizer, loop, {}))
+    return jsonify({'response': response})
+
+async def generate_hermes_async(query, model, tokenizer, loop, generation_config_overrides={}):
+    prompt = f"""system
+You are Lila, an AI art advisory with access to the following function:
+Use it only when necessary, otherwise just answer the user's questions without using the function. 
+You response should as short as possible.
+{convert_pydantic_to_openai_function(SimilarityTool)}
 
 
-# convert_pydantic_to_openai_function(SimilarityTool)
-    
+NOTE: When you have used the function, wait for the response to give the user a response.
+
+Keep your responses as short as possible.
+                               
+Don't make up lies, if you can't use function, just say `there is a problem getting the response`.
+user
+{query}
+assistant"""
+
+    with torch.inference_mode():
+        completion = await loop.run_in_executor(executor, partial(model.invoke, [{"role": "user", "content": prompt}]))
+
+    if isinstance(completion, str):
+        content = completion.strip()
+    else:
+        content = completion.content.strip()
+
+    functions = extract_function_calls(content)
+
+    if functions:
+        for function in functions:
+            if function['name'] == 'SimilarityTool':
+                similarity_tool = SimilarityTool(**function['arguments'])
+                similarity_tool.find_similar_documents()
+                while not similarity_tool.similar_documents:  # Wait until the tool has found similar documents
+                    await asyncio.sleep(0.1)
+                response = f"Similar documents for query '{similarity_tool.query}': {similarity_tool.similar_documents}"
+                return response
+    else:
+        return content
+
 def extract_function_calls(completion):
     if isinstance(completion, str):
         content = completion
@@ -100,56 +148,11 @@ def extract_function_calls(completion):
 
     return functions
 
-def generate_hermes(query, model, tokenizer, generation_config_overrides={}):
-    # fn = """{"name": "function_name", "arguments": {"arg_1": "value_1", "arg_2": value_2, ...}}"""
-    prompt = f"""system
-You are Lila, an AI art advisory with access to the following function:
-Use it only when necessary, otherwise just answer the user's questions without using the function. 
-You response should as short as possible.
-{convert_pydantic_to_openai_function(SimilarityTool)}
-
-when you have used the function, have you response like:
-
-Answer: just say "Is that what you are looking for?" when you have used the function.
-
-NOTE: When you have used the function, wait for the response to give the user a response.
-
-Keep your responses as short as possible.
-                               
-Don't make up lies, if you can't use function, just say `there is a problem getting the response`.
-user
-{query}
-assistant"""
-
-    with torch.inference_mode():
-        completion = model.invoke([{"role": "user", "content": prompt}])
-
-    if isinstance(completion, str):
-        content = completion.strip()
-    else:
-        content = completion.content.strip()
-
-    functions = extract_function_calls(content)
-
-    if functions:
-        return functions
-    else:
-        return content
-
-
-
-# Your existing code for setting up the model, tokenizer, etc.
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    data = request.get_json()
-    user_input = data['user_input']
-    response = generate_hermes(user_input, model, tokenizer, {})
-    return jsonify({'response': response})
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
-    
+
+
+
 # def test_similarity_tool():
 #     # Create an instance of SimilarityTool with a sample query
 #     query = "sample query"
