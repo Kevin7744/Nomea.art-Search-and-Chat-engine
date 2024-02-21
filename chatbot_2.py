@@ -61,16 +61,20 @@ def find_similar_documents(query_embedding):
 class SimilarityTool(BaseModel):
     """performs a similarity search based on query on a Supabase database."""
     query: str = Field(description="The search query to use for similarity search.")
-    similar_documents: list = Field(description="List of IDs of similar images.")
+    similar_documents: list = Field(default=[], description="List of IDs of similar images.")
 
     @validator("query")
-    def query_must_not_be_empty(cls, field):
-        if not field:
-            raise ValueError("query cannot be empty")
-        else:
-            query_embedding = convert_to_embedding(field)
-            similar_documents = find_similar_documents(query_embedding)
-        return similar_documents
+    def query_must_not_be_empty(cls, value):
+        if not value:
+            raise ValueError("query cannot be empty.")
+        return value
+
+    def find_similar_documents(self):
+        query_embedding = convert_to_embedding(self.query)
+        similar_documents = find_similar_documents(query_embedding)
+        self.similar_documents = similar_documents
+
+
 
 # convert_pydantic_to_openai_function(SimilarityTool)
     
@@ -145,3 +149,20 @@ def chat():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
+    
+# def test_similarity_tool():
+#     # Create an instance of SimilarityTool with a sample query
+#     query = "sample query"
+#     similarity_tool = SimilarityTool(query=query)
+    
+#     # Call the find_similar_documents method to perform the embedding conversion and similarity search
+#     similarity_tool.find_similar_documents()
+
+#     # Access the similar_documents attribute
+#     similar_documents = similarity_tool.similar_documents
+
+#     # Print the result
+#     print(f"Similar documents for query '{query}': {similar_documents}")
+
+# if __name__ == "__main__":
+#     test_similarity_tool()
