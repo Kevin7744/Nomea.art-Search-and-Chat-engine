@@ -17,6 +17,10 @@ from langchain_mistralai import MistralAIEmbeddings
 
 from supabase import create_client
 
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
 # Load API key from .env file
 load_dotenv()
 mistral_api_key = os.getenv("MISTRAL_API_KEY")
@@ -102,7 +106,7 @@ You response should as short as possible.
 
 when you have used the function, have you response like:
 
-Answer: Don't display the "Result" to the user just say "Is that what you are looking for?"
+Answer: just say "Is that what you are looking for?" when you have used the function.
 
 NOTE: When you have used the function, wait for the response to give the user a response.
 
@@ -124,14 +128,20 @@ assistant"""
     functions = extract_function_calls(content)
 
     if functions:
-        print(functions)
+        return functions
     else:
-        print(content)
-    print("=" * 100)
+        return content
 
-def chat_loop():
-    while True:
-        user_input = input("User: ")
-        generate_hermes(user_input, model, tokenizer, {})
 
-chat_loop()
+
+# Your existing code for setting up the model, tokenizer, etc.
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_input = data['user_input']
+    response = generate_hermes(user_input, model, tokenizer, {})
+    return jsonify({'response': response})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=True)
