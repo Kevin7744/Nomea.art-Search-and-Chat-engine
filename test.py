@@ -1,16 +1,16 @@
-import locale
-import gc, json, re
-import xml.etree.ElementTree as ET
-from functools import partial
+import re
 import os
+import gc
+import json
+from functools import partial
 from dotenv import load_dotenv
 
 import transformers
 import torch
 
-from langchain.utils.openai_functions import convert_pydantic_to_openai_function
 from langchain.pydantic_v1 import BaseModel, Field, validator
 from langchain_mistralai.chat_models import ChatMistralAI
+from langchain.utils.openai_functions import convert_pydantic_to_openai_function
 
 # Load API key from .env file
 load_dotenv()
@@ -46,7 +46,6 @@ class Joke(BaseModel):
     setup: str = Field(description="question to set up a joke")
     punchline: str = Field(description="answer to resolve the joke")
 
-    # You can add custom validation logic easily with Pydantic.
     @validator("setup")
     def question_ends_with_question_mark(cls, field):
         if field[-1] != "?":
@@ -92,6 +91,8 @@ def generate_hermes(prompt, model, tokenizer, generation_config_overrides={}):
     fn = """{"name": "function_name", "arguments": {"arg_1": "value_1", "arg_2": value_2, ...}}"""
     prompt = f"""system
 You are a helpful assistant with access to the following functions:
+Use them only when necessary, otherwise just answer the user's questions without using the functions. 
+You response should as short as possible.
 
 {convert_pydantic_to_openai_function(Joke)}
 
@@ -109,6 +110,7 @@ To use these functions respond with:
 Edge cases you must handle:
 - If there are no functions that match the user request, you will respond politely that you cannot help.
 user
+NOTE: Only use the functions when necessary, otherwise answer the user's question.
 {prompt}
 assistant"""
 
@@ -132,11 +134,10 @@ assistant"""
 
 generation_func = partial(generate_hermes, model=model, tokenizer=tokenizer)
 
-prompts = [
-    "Tell me a joke about kenyan athletes",
-    "Song for working out",
-    "Recommend me a book on singularity."
-]
 
-for prompt in prompts:
-    generation_func(prompt)
+def chat_loop():
+    while True:
+        user_input = input("User: ")
+        generation_func(user_input)
+
+chat_loop()

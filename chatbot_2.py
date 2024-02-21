@@ -17,10 +17,6 @@ from langchain_mistralai import MistralAIEmbeddings
 
 from supabase import create_client
 
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
 # Load API key from .env file
 load_dotenv()
 mistral_api_key = os.getenv("MISTRAL_API_KEY")
@@ -96,45 +92,29 @@ def extract_function_calls(completion):
 
     return functions
 
-triggered = False  # Variable to track if the function call should be triggered
-
 def generate_hermes(query, model, tokenizer, generation_config_overrides={}):
-    global triggered
-
-    main_prompt = """system
+    # fn = """{"name": "function_name", "arguments": {"arg_1": "value_1", "arg_2": value_2, ...}}"""
+    prompt = f"""system
 You are Lila, an AI art advisory with access to the following function:
-
+Use it only when necessary, otherwise just answer the user's questions without using the function. 
+You response should as short as possible.
 {convert_pydantic_to_openai_function(SimilarityTool)}
 
-To use these functions respond with:
-<function>
-    <functioncall> {fn} </functioncall>
-</function>
+when you have used the function, have you response like:
 
-For example:
-Question: user's Question here
-Query: Query to run with similarity_search from user's question
-Result: Result from the similarity_search
 Answer: Don't display the "Result" to the user just say "Is that what you are looking for?"
 
-Wait for API response to give back the response to the user.                             
+NOTE: When you have used the function, wait for the response to give the user a response.
+
 Keep your responses as short as possible.
                                
-Don't make up lies, if you can't use SimilaritySearchTool, just say `there is a problem getting the response`.
+Don't make up lies, if you can't use function, just say `there is a problem getting the response`.
 user
 {query}
 assistant"""
 
-    if not triggered:
-        prompt = main_prompt
-    else:
-        prompt = f"user\n{query}\nassistant"
-
     with torch.inference_mode():
         completion = model.invoke([{"role": "user", "content": prompt}])
-
-    if not triggered:
-        triggered = True
 
     if isinstance(completion, str):
         content = completion.strip()
@@ -149,22 +129,9 @@ assistant"""
         print(content)
     print("=" * 100)
 
-@app.route('/chat', methods=['POST'])
-def chat():
-    try:
-        data = request.json
-        user_input = data['input']
+def chat_loop():
+    while True:
+        user_input = input("User: ")
+        generate_hermes(user_input, model, tokenizer, {})
 
-        # Use the MistralAI model to generate a response
-        agent_response = model({"input": user_input})
-        assistant_message_content = agent_response.get("output", "No response from the assistant.")
-
-        return jsonify({'response': assistant_message_content})
-    except KeyError:
-        return jsonify({'error': 'Invalid request format. Please provide input in the correct format.'}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+chat_loop()

@@ -3,7 +3,7 @@ from langchain.agents import initialize_agent, AgentType
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain.schema import SystemMessage
 from langchain.memory import ConversationSummaryBufferMemory
-from functions import SimilaritySearchTool, generate_hermes
+# from functions import SimilaritySearchTool, generate_hermes
 from dotenv import load_dotenv
 import os
 
