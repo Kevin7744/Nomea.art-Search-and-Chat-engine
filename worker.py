@@ -13,10 +13,16 @@ key = environ.get("SUPABASE_SERVICE_KEY")
 mistral_api_key = environ.get("MISTRAL_API_KEY")
 supabase = create_client(url, key)
 
-def create_embeddings(supabase, table_name, columns):
+def check_new_rows(table_name, columns):
+    # Fetch data from table where embeddings are null
+    response = supabase.table(table_name).select('id').filter('embeddings', 'is', 'null').execute()
+
+    new_rows = [record['id'] for record in response.data]
+
+    return new_rows
+
+def create_embeddings(supabase, table_name, columns, mistral_api_key):
     batch_size=10
-    # Load Mistral API key from environment variables
-    mistral_api_key = mistral_api_key
 
     # Create embeddings instance
     embedding = MistralAIEmbeddings(mistral_api_key=mistral_api_key)
@@ -25,9 +31,9 @@ def create_embeddings(supabase, table_name, columns):
     # Fetch data from table
     response = supabase.table(table_name).select(*columns).execute()
     
-    # Combine columns into a single string
+    # Combine columns into a single string, skipping null values
     descriptions = pd.Series([
-        " ".join([str(record[col]) for col in columns])
+        " ".join([str(record[col]) for col in columns if record[col] is not None])
         for record in response.data
     ])
 
@@ -50,7 +56,7 @@ def create_embeddings(supabase, table_name, columns):
     for data in embedding_data:
         update_query = supabase.table(table_name).update(data).eq('id', data['id']).execute()
 
-# # Example usage
-# table_name = 'posts'
-# columns = ['id', 'title', 'description', 'width_mm', 'height_mm', 'depth_mm', 'year', 'weigth_grams', 'priceFull']
-# create_embeddings(supabase, table_name, columns)
+# Example usage
+table_name = 'posts'
+columns = ['id', 'title', 'description', 'width_mm', 'height_mm', 'depth_mm', 'year', 'weigth_grams', 'priceFull']
+create_embeddings(supabase, table_name, columns, mistral_api_key)
