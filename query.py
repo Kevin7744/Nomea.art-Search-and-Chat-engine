@@ -43,7 +43,7 @@ async def search(query: Optional[str] = Form(default=None), file: Optional[Uploa
         inputs = clip_processor(images=image, return_tensors="pt")
         image_embedding = clip_model.get_image_features(**inputs).detach().numpy()[0].tolist()
         # Call Supabase function for image search
-        response = supabase.rpc("match_images", {"query_embedding": image_embedding}).execute()
+        response = supabase.rpc("match_images", {"query_embedding": image_embedding, "result_limit": 10}).execute()
     else:
         raise HTTPException(status_code=400, detail="No valid input provided")
 
