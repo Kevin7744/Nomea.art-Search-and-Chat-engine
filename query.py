@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from typing import Optional
+from typing import Optional, List, Union
 from os import environ
 from dotenv import load_dotenv
 from supabase import create_client
@@ -7,7 +7,8 @@ from langchain_mistralai import MistralAIEmbeddings
 from PIL import Image
 from io import BytesIO
 from transformers import CLIPProcessor, CLIPModel
-import numpy as np  # Added for array handling
+import numpy as np
+from sentence_transformers import util  # For cosine similarity
 
 # Load environment variables
 load_dotenv()
@@ -29,33 +30,50 @@ clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 app = FastAPI()
 
 @app.post("/search/")
-async def search(query: Optional[str] = Form(default=None), file: Optional[UploadFile] = File(default=None)):
+async def search(query: Optional[str] = Form(default=None), file: Optional[UploadFile] = File(default=None), top_k: Optional[int] = Form(3)) -> Union[List[int], List[dict]]:
     if query:
         print(f"Received text query: {query}")
         # Convert text to embeddings using MistralAI
         text_embedding = mistral_embedding.embed_documents([query])[0]
         # Call Supabase function for text search
         response = supabase.rpc("match_documents", {"query_embedding": text_embedding}).execute()
+        # Return a list of IDs for text search
+        return [item['id'] for item in response.data]
+
     elif file:
+        # Image search part
         print(f"Received file: {file.filename}")
         contents = await file.read()
         image = Image.open(BytesIO(contents))
-        # Process image using CLIP
         inputs = clip_processor(images=image, return_tensors="pt")
-        image_embedding = clip_model.get_image_features(**inputs).detach().numpy()[0]
-        # Convert numpy array to a list and format it for PostgreSQL array
-        image_embedding_formatted = "{" + ",".join(map(str, image_embedding.tolist())) + "}"
-        # Call Supabase function for image search
-        response = supabase.rpc("matches_image", {"query_embedding": image_embedding_formatted}).execute()
+        query_embedding = clip_model.get_image_features(**inputs).detach().numpy()
+
+        # Fetch embeddings from the database
+        response = supabase.table("posts").select("id", "new_image_embeddings").execute()
+        
+        # Preprocess and validate embeddings before converting to NumPy array
+        db_embeddings = []
+        for record in response.data:
+            embedding = record['new_image_embeddings']
+            if isinstance(embedding, list) and len(embedding) == len(query_embedding):
+                db_embeddings.append(embedding)
+            else:
+                print(f"Skipping invalid embedding for id {record['id']}")
+        
+        # Convert to NumPy array and compute similarities
+        if db_embeddings:
+            db_embeddings = np.array(db_embeddings)
+            similarities = util.pytorch_cos_sim(query_embedding, db_embeddings)[0].numpy()
+
+            # Get top k results based on similarities
+            top_k_indices = np.argsort(similarities)[::-1][:top_k]
+            return [{"id": response.data[idx]['id'], "similarity": float(similarities[idx])} for idx in top_k_indices]
+        else:
+            return []
+
+    # Error handling for invalid input
     else:
         raise HTTPException(status_code=400, detail="No valid input provided")
-
-        # Extract IDs from response data
-    ids = [item['id'] for item in response.data]
-    return ids
-    # except Exception as e:
-    #     print(f"Error: {e}")
-    #     raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
     import uvicorn
