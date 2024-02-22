@@ -34,11 +34,8 @@ async def search(query: Optional[str] = Form(default=None), file: Optional[Uploa
         print(f"Received text query: {query}")
         # Convert text to embeddings using MistralAI
         text_embedding = mistral_embedding.embed_documents([query])[0]
-        # Ensure the embedding is in a compatible format for PostgreSQL
-        # This step might need adjustment based on your PostgreSQL setup
-        text_embedding_formatted = "{" + ",".join(map(str, text_embedding)) + "}"
         # Call Supabase function for text search
-        response = supabase.rpc("match_documents", {"query_embedding": text_embedding_formatted}).execute()
+        response = supabase.rpc("match_documents", {"query_embedding": text_embedding}).execute()
     elif file:
         print(f"Received file: {file.filename}")
         contents = await file.read()
@@ -54,8 +51,8 @@ async def search(query: Optional[str] = Form(default=None), file: Optional[Uploa
         raise HTTPException(status_code=400, detail="No valid input provided")
 
         # Extract IDs from response data
-        ids = [item['id'] for item in response.data]
-        return ids
+    ids = [item['id'] for item in response.data]
+    return ids
     # except Exception as e:
     #     print(f"Error: {e}")
     #     raise HTTPException(status_code=500, detail="Internal server error")
