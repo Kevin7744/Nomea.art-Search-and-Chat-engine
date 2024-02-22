@@ -5,11 +5,11 @@ from PIL import Image
 from io import BytesIO
 from sentence_transformers import SentenceTransformer
 import requests
-import json
-import base64
 
+# Load environment variables
 load_dotenv()
 
+# Supabase setup
 url = environ.get("SUPABASE_URL")
 key = environ.get("SUPABASE_SERVICE_KEY")
 supabase = create_client(url, key)
@@ -18,7 +18,9 @@ supabase = create_client(url, key)
 model = SentenceTransformer('clip-ViT-B-32')
 
 def download_and_update_images():
+    # Fetch image records from the Supabase table
     response = supabase.table("images").select("id", "image_url").execute()
+    
     for record in response.data:
         image_id = record["id"]
         image_url = record["image_url"]
@@ -29,13 +31,13 @@ def download_and_update_images():
         image = Image.open(BytesIO(response.content))
         
         # Convert the image to embeddings using the pre-trained model
-        image_embeddings = model.encode(image)
-        
-        # Encode the embeddings to Base64 string
-        image_embeddings_base64 = base64.b64encode(image_embeddings.tobytes()).decode('utf-8')
+        # Ensure the image is converted to RGB format to avoid issues with models expecting 3 channels
+        image_embeddings = model.encode([image.convert("RGB")])[0]  # Ensure it's a list even for a single image
         
         # Update the `new_image_embeddings` column in the `posts` table
-        supabase.table("posts").update({"new_image_embeddings": image_embeddings_base64}).eq("id", image_id).execute()
+        # Directly store the embeddings as an array of floats
+        supabase.table("posts").update({"new_image_embeddings": image_embeddings.tolist()}).eq("id", image_id).execute()
 
 # Example usage
-download_and_update_images()
+if __name__ == "__main__":
+    download_and_update_images()
