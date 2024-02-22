@@ -46,7 +46,7 @@ async def search(query: Optional[str] = Form(default=None), file: Optional[Uploa
         # Convert numpy array to a list and format it for PostgreSQL array
         image_embedding_formatted = "{" + ",".join(map(str, image_embedding.tolist())) + "}"
         # Call Supabase function for image search
-        response = supabase.rpc("match_image", {"query_embedding": image_embedding_formatted}).execute()
+        response = supabase.rpc("matches_image", {"query_embedding": image_embedding_formatted}).execute()
     else:
         raise HTTPException(status_code=400, detail="No valid input provided")
 
