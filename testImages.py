@@ -5,7 +5,7 @@ import os
 url = "http://127.0.0.1:8000/search/"
 
 # The path to the image file you want to upload, relative to this script's directory
-image_path = os.path.join("images", "matwana.jpg")
+image_path = os.path.join("images", "41.jpg")
 
 # Check if the image file exists
 if not os.path.isfile(image_path):
