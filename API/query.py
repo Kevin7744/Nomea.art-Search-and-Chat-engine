@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Union
 from os import environ
 from dotenv import load_dotenv
@@ -25,6 +26,15 @@ mistral_embedding.model = "mistral-embed"
 model = SentenceTransformer('clip-ViT-B-32')
 
 app = FastAPI()
+
+# Add CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 @app.post("/search/")
 async def search(query: Optional[str] = Form(default=None), file: Optional[UploadFile] = File(default=None), top_k: Optional[int] = Form(100)) -> Union[List[int], List[dict]]:
