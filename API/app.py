@@ -53,7 +53,7 @@ async def search(query: Optional[str] = Form(default=None), file: Optional[Uploa
         query_embedding = model.encode([image])[0]  # Ensure it's a list even for a single image
 
         # Fetch embeddings from the database
-        response = supabase.table("posts").select("id", "new_image_embeddings").execute()
+        response = supabase.table("embeddings").select("id", "new_image_embeddings").execute()
         db_embeddings = []
         ids = []
 
