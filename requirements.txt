@@ -5,7 +5,7 @@ langchain-community
 langchain-core
 langchain-experimental
 pyngrok
-sentence-tranformers
+sentence-transformers
 langchain-mistral
 pydantic
 numpy
