@@ -5,3 +5,8 @@ langchain-community
 langchain-core
 langchain-experimental
 pyngrok
+sentence-tranformers
+langchain-mistral
+pydantic
+numpy
+supabase
