@@ -2,10 +2,10 @@ import requests
 import os
 
 # The URL of your FastAPI application's /search/ endpoint
-url = "http://127.0.0.1:8000/search/"
+url = "http://178.254.23.172/api/search/"
 
 # The path to the image file you want to upload, relative to this script's directory
-image_path = os.path.join("images", "41.jpg")
+image_path = os.path.join("images", "67.jpg")
 
 # Check if the image file exists
 if not os.path.isfile(image_path):
