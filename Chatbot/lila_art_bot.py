@@ -87,7 +87,7 @@ def art_advisor_chatbot():
                     result_message = json.loads(function_result)
                     if 'results' in result_message:
                         ids = result_message['results']
-                        content = "Is that what you are looking for?" + ', '.join(map(str, ids))
+                        content = "Is that what you are looking for? " + str(ids)
                     elif 'error' in result_message:
                         content = "Error: " + result_message['error']
                     else:
