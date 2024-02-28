@@ -102,6 +102,5 @@ def art_advisor_chatbot():
                 print(f"AI Art Advisor: {bot_response}")
 
 
-
 if __name__ == "__main__":
     art_advisor_chatbot()
