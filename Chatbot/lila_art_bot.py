@@ -11,7 +11,9 @@ client = MistralClient(api_key=api_key)
 def search_art(params):
     """Function to call the art search API and return results in JSON format."""
     query = params.get("query", "")
-    url = f"http://178.254.23.172/api/search/?query={query}"
+    # Use the environment variable for the API endpoint
+    base_url = os.getenv("ART_SEARCH_API_ENDPOINT") 
+    url = f"{base_url}?query={query}"
     
     response = requests.post(url)
 
