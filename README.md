@@ -1,2 +1,4 @@
 # Numea.art-Search-and-Chat-engine
-The chatbot, using mistral and function defined by pydantic to perform similarity searches on supabase.
+
+
+Detailed description coming soon. Still working on it.....
