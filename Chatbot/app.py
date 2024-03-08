@@ -101,3 +101,8 @@ async def chat(chat_request: ChatRequest):
         else:
             content = response.choices[0].message.content
     return {"response": content}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
