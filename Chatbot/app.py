@@ -1,20 +1,21 @@
-import json
-import os
-import requests
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
+import requests
+import json
+# Import the keys from keys.py
+from keys import (MISTRAL_API_KEY, ART_SEARCH_API_ENDPOINT)
 
-api_key = os.getenv("MISTRAL_API_KEY")
-client = MistralClient(api_key=api_key)
+app = FastAPI()
+
+# Use the imported keys
+client = MistralClient(api_key=MISTRAL_API_KEY)
 
 def search_art(params):
     query = params.get("query", "")
-    base_url = os.getenv("ART_SEARCH_API_ENDPOINT")
-    url = f"{base_url}?query={query}"
-    
+    url = f"{ART_SEARCH_API_ENDPOINT}?query={query}"
     response = requests.post(url)
 
     if response.status_code == 200:
@@ -22,7 +23,6 @@ def search_art(params):
     else:
         print("Error fetching art data:", response.text)
         return json.dumps({'error': 'Failed to fetch art data'})
-
 tools = [
     {
         "type": "function",
