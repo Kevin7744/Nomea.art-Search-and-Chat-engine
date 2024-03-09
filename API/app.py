@@ -7,27 +7,27 @@ from supabase import create_client
 from langchain_mistralai import MistralAIEmbeddings
 from PIL import Image
 from io import BytesIO
-from sentence_transformers import SentenceTransformer, util  
+from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import torch
+import requests
 
 load_dotenv()
 
-
 SUPABASE_URL = environ.get("SUPABASE_URL")
 SUPABASE_KEY = environ.get("SUPABASE_SERVICE_KEY")
+MISTRAL_API_KEY = environ.get("MISTRAL_API_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-
-MISTRAL_API_KEY = environ.get("MISTRAL_API_KEY")
 mistral_embedding = MistralAIEmbeddings(mistral_api_key=MISTRAL_API_KEY)
 mistral_embedding.model = "mistral-embed"
+
+image_model = SentenceTransformer('clip-ViT-B-32')
 
 model = SentenceTransformer('clip-ViT-B-32')
 
 app = FastAPI()
 
-# Add CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -35,6 +35,60 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+@app.get("/ping")
+async def ping():
+    return "pong"
+
+
+@app.post("/create-text-embeddings/")
+async def create_text_embeddings(ids: List[int]):
+    columns = ['id', 'title', 'description', 'width_mm', 'height_mm', 'depth_mm', 'year', 'weight_grams', 'priceFull']
+    formatted_columns = ', '.join(columns)
+    response = supabase.table('posts').select(formatted_columns).in_('id', ids).execute()
+    
+    data = response.data
+    combined_strings = []
+    for record in data:
+        combined_string = " ".join([
+            f"{record[col]} millimeters" if col in ['width_mm', 'height_mm', 'depth_mm'] else
+            f"{record[col]} grams" if col == 'weight_grams' else
+            f"{record[col]}$" if col == 'priceFull' else
+            str(record[col])
+            for col in columns if record[col] is not None
+        ])
+        combined_strings.append(combined_string)
+    
+    embeddings = mistral_embedding.embed_documents(combined_strings)
+    for i, doc_id in enumerate(ids):
+        supabase.table('embeddings').upsert({"id": doc_id, "embeddings": embeddings[i]}).execute()
+    
+    return {"detail": "Text embeddings creation process completed"}
+
+
+@app.post("/create-image-embeddings/")
+async def create_image_embeddings(ids: List[int]):
+    for image_id in ids:
+        image_response = supabase.table("images").select("image_url").eq("id", image_id).execute()
+        
+        if not image_response.data:
+            continue  # Skip if no image found
+
+        image_url = image_response.data[0]["image_url"]
+        full_url = f"https://imagedelivery.net/vfguozVHBGZa-6s8NQZayA/{image_url}/public"
+        
+        img_response = requests.get(full_url)
+        img_response.raise_for_status()
+        image = Image.open(BytesIO(img_response.content))
+        
+        image_embeddings = image_model.encode([image.convert("RGB")])[0]
+        supabase.table("embeddings").upsert({
+            "id": image_id,
+            "new_image_embeddings": image_embeddings.tolist()
+        }).execute()
+        
+    return {"detail": "Image embeddings creation process completed"}
+
 
 @app.post("/search/")
 async def search(query: Optional[str] = Form(default=None), file: Optional[UploadFile] = File(default=None), top_k: Optional[int] = Form(100)) -> Union[List[int], List[dict]]:
