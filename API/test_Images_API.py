@@ -1,7 +1,7 @@
 import requests
 import os
 
-url = "http://178.254.23.172/api/search/"
+url = ""
 
 
 image_path = os.path.join("images", "67.jpg")
