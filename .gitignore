@@ -5,3 +5,5 @@
 /Tools
 test
 /Workers
+/__pycache__
+/env
