@@ -11,6 +11,7 @@ from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import torch
 import requests
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -36,33 +37,40 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+
+class EmbeddingRequest(BaseModel):
+    ids: List[int]
+
 @app.get("/ping")
 async def ping():
     return "pong"
 
-
 @app.post("/create-text-embeddings/")
-async def create_text_embeddings(ids: List[int]):
-    columns = ['id', 'title', 'description', 'width_mm', 'height_mm', 'depth_mm', 'year', 'weight_grams', 'priceFull']
+async def create_text_embeddings(request_body: EmbeddingRequest):
+    ids = request_body.ids
+    columns = ['id', 'title', 'description', 'width_mm', 'height_mm', 'depth_mm', 'year', 'weigth_grams', 'priceFull']
     formatted_columns = ', '.join(columns)
     response = supabase.table('posts').select(formatted_columns).in_('id', ids).execute()
-    
+
     data = response.data
+    if not data:
+        raise HTTPException(status_code=404, detail="No records found for the provided IDs.")
+
     combined_strings = []
     for record in data:
         combined_string = " ".join([
             f"{record[col]} millimeters" if col in ['width_mm', 'height_mm', 'depth_mm'] else
-            f"{record[col]} grams" if col == 'weight_grams' else
+            f"{record[col]} grams" if col == 'weigth_grams' else
             f"{record[col]}$" if col == 'priceFull' else
             str(record[col])
-            for col in columns if record[col] is not None
+            for col in columns if col in record and record[col] is not None
         ])
         combined_strings.append(combined_string)
-    
+
     embeddings = mistral_embedding.embed_documents(combined_strings)
     for i, doc_id in enumerate(ids):
         supabase.table('embeddings').upsert({"id": doc_id, "embeddings": embeddings[i]}).execute()
-    
+
     return {"detail": "Text embeddings creation process completed"}
 
 
@@ -70,23 +78,23 @@ async def create_text_embeddings(ids: List[int]):
 async def create_image_embeddings(ids: List[int]):
     for image_id in ids:
         image_response = supabase.table("images").select("image_url").eq("id", image_id).execute()
-        
+
         if not image_response.data:
             continue  # Skip if no image found
 
         image_url = image_response.data[0]["image_url"]
         full_url = f"https://imagedelivery.net/vfguozVHBGZa-6s8NQZayA/{image_url}/public"
-        
+
         img_response = requests.get(full_url)
         img_response.raise_for_status()
         image = Image.open(BytesIO(img_response.content))
-        
+
         image_embeddings = image_model.encode([image.convert("RGB")])[0]
         supabase.table("embeddings").upsert({
             "id": image_id,
             "new_image_embeddings": image_embeddings.tolist()
         }).execute()
-        
+
     return {"detail": "Image embeddings creation process completed"}
 
 
