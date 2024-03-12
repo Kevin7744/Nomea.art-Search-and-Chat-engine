@@ -24,7 +24,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 mistral_embedding = MistralAIEmbeddings(mistral_api_key=MISTRAL_API_KEY)
 mistral_embedding.model = "mistral-embed"
 image_embedding_model = SentenceTransformer(IMAGE_EMBEDDING_MODEL)
-mistral_client = MistralClient(api_key=MISTRAL_API_KEY)
+client = MistralClient(api_key=MISTRAL_API_KEY)
 replicate.api_token = os.getenv('REPLICATE_API_TOKEN')
 
 def fetch_new_posts():
@@ -75,16 +75,15 @@ Quantity: Ensure that you provide a minimum of 15 tags, but do not exceed 20 tag
 Format: Present your tags in a comma-separated list for clarity.
 
 ## Example Tags:
-```
 blue, adventure, dynamic, painted, wildlife, beauty, 3D effect, imaginative, vibrant, tranquil, modern, abstract, expressive, urban, natural, serene, contrast, texture, perspective, illuminated
-```
+
 Remember, the goal is to offer a rich, multifaceted snapshot of the image's content and character through your tags, aiding in its categorization and understanding.
     """
     messages = [ChatMessage(role="user", content=prompt)]
 
-    ai_response = mistral_client.chat(
+    ai_response = client.chat(
         model="mistral-large-latest",
-        messages=messages,
+        messages=messages,  # Pass the ChatMessage instance directly
     )
     return ai_response.choices[0].message.content.strip()
 
