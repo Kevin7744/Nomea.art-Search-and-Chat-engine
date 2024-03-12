@@ -29,8 +29,9 @@ replicate.api_token = os.getenv('REPLICATE_API_TOKEN')
 
 
 def fetch_new_posts():
-    response = supabase.rpc('fetch_new_posts').execute()
+    response = supabase.rpc('fetch_new_posts', params={}).execute()  # Added empty params={}
     return response.data if response.data else []
+
 
 def create_text_embedding_for_post(post):
     # Define the columns to include in the combined string, along with any special formatting needed
