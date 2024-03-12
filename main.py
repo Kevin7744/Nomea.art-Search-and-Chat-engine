@@ -27,30 +27,9 @@ image_embedding_model = SentenceTransformer(IMAGE_EMBEDDING_MODEL)
 mistral_client = MistralClient(api_key=MISTRAL_API_KEY)
 replicate.api_token = os.getenv('REPLICATE_API_TOKEN')
 
-
 def fetch_new_posts():
-    response = supabase.rpc('fetch_new_posts', params={}).execute()  # Added empty params={}
+    response = supabase.rpc('fetch_new_posts', params={}).execute()
     return response.data if response.data else []
-
-
-def create_text_embedding_for_post(post):
-    # Define the columns to include in the combined string, along with any special formatting needed
-    columns = ['title', 'description', 'year', 'width_mm', 'height_mm', 'depth_mm', 'weight_grams', 'priceFull' ]
-
-    # Combine the strings with appropriate formatting
-    combined_string = " ".join([
-        f"{post[col]} millimeters" if col in ['width_mm', 'height_mm', 'depth_mm'] else
-        f"{post[col]} grams" if col == 'weight_grams' else
-        f"{post[col]}$" if col == 'priceFull' else
-        str(post.get(col, ''))
-        for col in columns if col in post and post[col] is not None
-    ])
-    
-    # Generate the text embedding for the combined string
-    text_embedding = mistral_embedding.embed_documents([combined_string])[0]
-    
-    return text_embedding
-
 
 def fetch_images_for_post(post_id):
     response = supabase.table("images").select("id", "image_url").eq("post_id", post_id).execute()
@@ -101,9 +80,7 @@ blue, adventure, dynamic, painted, wildlife, beauty, 3D effect, imaginative, vib
 ```
 Remember, the goal is to offer a rich, multifaceted snapshot of the image's content and character through your tags, aiding in its categorization and understanding.
     """
-    messages = [
-        ChatMessage(role="user", content=prompt)
-    ]
+    messages = [ChatMessage(role="user", content=prompt)]
 
     ai_response = mistral_client.chat(
         model="mistral-large-latest",
@@ -114,17 +91,13 @@ Remember, the goal is to offer a rich, multifaceted snapshot of the image's cont
 def process_posts_and_images():
     new_posts = fetch_new_posts()
     for post in new_posts:
-        text_embedding = create_text_embedding_for_post(post)
-        supabase.table("embeddings").upsert({"id": post['id'], "embeddings": text_embedding}).execute()
-
+        # Process images related to the post
         images = fetch_images_for_post(post['id'])
+        all_image_descriptions = []
         for image in images:
             image_embedding = create_image_embedding(image['image_url'])
             image_description = generate_image_description(image['image_url'])
             image_tags = create_image_tags(image_description)
-
-            # Update embeddings table with new image embeddings
-            supabase.table("embeddings").upsert({"id": post['id'], "new_image_embeddings": image_embedding}).execute()
 
             # Update image descriptions and tags table
             supabase.table("image_descriptions").upsert({
@@ -132,6 +105,34 @@ def process_posts_and_images():
                 "llava_text": image_description,
                 "image_tags": image_tags
             }).execute()
+            all_image_descriptions.append(image_description)
+
+        # Generate text embedding for the post, combined with all related image descriptions
+        text_embedding = create_text_embedding_for_post(post, ' '.join(all_image_descriptions))
+
+        # Update embeddings table with the new text embedding
+        supabase.table("embeddings").upsert({"id": post['id'], "embeddings": text_embedding}).execute()
+
+def create_text_embedding_for_post(post, image_descriptions):
+    # Define the columns to include in the combined string, along with any special formatting needed
+    columns = ['title', 'description', 'year', 'width_mm', 'height_mm', 'depth_mm', 'weight_grams', 'priceFull' ]
+
+    # Combine the strings with appropriate formatting
+    combined_string = " ".join([
+        f"{post[col]} millimeters" if col in ['width_mm', 'height_mm', 'depth_mm'] else
+        f"{post[col]} grams" if col == 'weight_grams' else
+        f"{post[col]}$" if col == 'priceFull' else
+        str(post.get(col, ''))
+        for col in columns if col in post and post[col] is not None
+    ])
+
+    # Combine post details with all related image descriptions
+    final_combined_text = combined_string + " " + image_descriptions
+    
+    # Generate the text embedding for the final combined text
+    text_embedding = mistral_embedding.embed_documents([final_combined_text])[0]
+    
+    return text_embedding
 
 if __name__ == "__main__":
     process_posts_and_images()
