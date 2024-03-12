@@ -1,53 +1,53 @@
-from fastapi import FastAPI, HTTPException
-from typing import List
-import pandas as pd
+import os
+from dotenv import load_dotenv
 from supabase import create_client
 from langchain_mistralai import MistralAIEmbeddings
-from os import environ
-from dotenv import load_dotenv
+from typing import List
 
-app = FastAPI()
-
-# Initialize Supabase client and MistralAIEmbeddings
+# Load environment variables
 load_dotenv()
-url = environ.get("SUPABASE_URL")
-key = environ.get("SUPABASE_SERVICE_KEY")
-mistral_api_key = environ.get("MISTRAL_API_KEY")
-supabase = create_client(url, key)
-embedding = MistralAIEmbeddings(mistral_api_key=mistral_api_key)
-embedding.model = "mistral-embed"
 
-@app.post("/create-embeddings/")
-async def create_embeddings(ids: List[int]):
-    # Define the columns to retrieve and modify
+# Supabase and MistralAI configuration
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
+
+# Initialize Supabase client and MistralAI embeddings
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+mistral_embedding = MistralAIEmbeddings(mistral_api_key=MISTRAL_API_KEY)
+mistral_embedding.model = "mistral-embed"
+
+def fetch_unprocessed_posts() -> List[dict]:
+    response = supabase.rpc('fetch_unprocessed_posts').execute()
+    return response.data if response.data else []
+
+def create_text_embeddings(posts: List[dict]):
     columns = ['id', 'title', 'description', 'width_mm', 'height_mm', 'depth_mm', 'year', 'weigth_grams', 'priceFull']
-    formatted_columns = ', '.join(columns)
-
-    # Fetch data from Supabase for the provided IDs
-    response = supabase.table('posts').select(formatted_columns).in_('id', ids).execute()
-
-    data = response.data
-
-    # Modify and combine column data
+    
     combined_strings = []
-    for record in data:
+    post_ids = []
+    for post in posts:
         combined_string = " ".join([
-            f"{record[col]} millimeters" if col in ['width_mm', 'height_mm', 'depth_mm'] else
-            f"{record[col]} grams" if col == 'weigth_grams' else
-            f"{record[col]}$" if col == 'priceFull' else
-            str(record[col])
-            for col in columns if record[col] is not None
+            f"{post[col]} millimeters" if col in ['width_mm', 'height_mm', 'depth_mm'] else
+            f"{post[col]} grams" if col == 'weigth_grams' else
+            f"{post[col]}$" if col == 'priceFull' else
+            str(post[col])
+            for col in columns if col in post and post[col] is not None
         ])
         combined_strings.append(combined_string)
+        post_ids.append(post['id'])
 
-    # Create and update embeddings
-    embeddings = embedding.embed_documents(combined_strings)
-    for i, doc_id in enumerate(ids):
-        update_response = supabase.table('embeddings').upsert({"id": doc_id, "embeddings": embeddings[i]}).execute()
+    embeddings = mistral_embedding.embed_documents(combined_strings)
+    for i, post_id in enumerate(post_ids):
+        supabase.table('embeddings').upsert({"id": post_id, "embeddings": embeddings[i]}).execute()
 
-    return {"detail": "success"}
-
+def main():
+    unprocessed_posts = fetch_unprocessed_posts()
+    if unprocessed_posts:
+        create_text_embeddings(unprocessed_posts)
+        print(f"Processed {len(unprocessed_posts)} posts.")
+    else:
+        print("No new posts to process.")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()

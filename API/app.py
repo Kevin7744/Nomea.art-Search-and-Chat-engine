@@ -42,7 +42,6 @@ app.add_middleware(
 async def ping():
     return "pong"
 
-
 @app.post("/search/")
 async def search(query: Optional[str] = Form(default=None), file: Optional[UploadFile] = File(default=None), top_k: Optional[int] = Form(100)) -> Union[List[int], List[dict]]:
     if query:
