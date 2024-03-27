@@ -1,0 +1,2 @@
+Fix the function calling feature
+Add memory to the chatbot
