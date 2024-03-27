@@ -15,14 +15,16 @@ client = MistralClient(api_key=MISTRAL_API_KEY)
 
 def search_art(params):
     query = params.get("query", "")
-    url = f"{ART_SEARCH_API_ENDPOINT}?query={query}"
-    response = requests.post(url)
+    url = ART_SEARCH_API_ENDPOINT
+    data = {'query': query, 'top_k': 100}
+    response = requests.post(url, data=data)
 
     if response.status_code == 200:
         return json.dumps({'results': response.json()})
     else:
         print("Error fetching art data:", response.text)
         return json.dumps({'error': 'Failed to fetch art data'})
+
 tools = [
     {
         "type": "function",
